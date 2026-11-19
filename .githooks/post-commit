@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Mantém a documentação no cofre do Obsidian em dia. Nunca bloqueia o commit.
+cd "$(git rev-parse --show-toplevel)"
+scripts/sincronizar-obsidian.sh >/dev/null 2>&1 || true
