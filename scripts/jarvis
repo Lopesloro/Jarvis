@@ -1,0 +1,48 @@
+#!/bin/zsh
+# Comando do Jarvis: abrir | status | logs | reiniciar | parar | ligar
+source "$HOME/jarvis/scripts/bin/_ambiente.sh"
+PORTA="${JARVIS_PORTA:-8765}"
+SERVICOS=(api agendador ponte)
+UID_ATUAL=$(id -u)
+
+case "${1:-abrir}" in
+  abrir)
+    for i in {1..30}; do curl -sf "http://127.0.0.1:$PORTA/saude" >/dev/null && break; sleep 1; done
+    open "http://127.0.0.1:$PORTA/#t=$JARVIS_TOKEN"
+    ;;
+  status)
+    for s in $SERVICOS; do
+      linha=$(launchctl print "gui/$UID_ATUAL/com.jarvis.$s" 2>/dev/null | grep -E "^\s+(state|pid) =" | tr -s ' ' | tr '\n' ' ')
+      printf "%-10s %s\n" "$s" "${linha:-não carregado}"
+    done
+    printf "%-10s %s\n" "ollama" "$(curl -sf http://127.0.0.1:11434/api/version || echo parado)"
+    curl -sf -H "Authorization: Bearer $JARVIS_TOKEN" "http://127.0.0.1:$PORTA/v1/status" \
+      | "$JARVIS_RAIZ/core/.venv/bin/python" -c '
+import json,sys
+s=json.load(sys.stdin)
+print("ponte     ", s["ponte"]["status"])
+print("itens     ", s["contagem"])
+for k,v in sorted(s["estado"].items()):
+    if k.startswith("fonte:"): print(f"{k[6:]:<10}", "ok" if v["valor"]["ok"] else "--", v["valor"]["detalhe"])
+' || echo "api       sem resposta"
+    ;;
+  logs)
+    tail -n 40 -f "$JARVIS_HOME"/logs/*.log
+    ;;
+  reiniciar)
+    for s in $SERVICOS; do launchctl kickstart -k "gui/$UID_ATUAL/com.jarvis.$s"; done
+    echo "reiniciado"
+    ;;
+  parar)
+    for s in $SERVICOS abrir; do launchctl bootout "gui/$UID_ATUAL/com.jarvis.$s" 2>/dev/null; done
+    echo "parado (volta no próximo login, ou rode: jarvis ligar)"
+    ;;
+  ligar)
+    for s in $SERVICOS; do
+      launchctl bootstrap "gui/$UID_ATUAL" "$HOME/Library/LaunchAgents/com.jarvis.$s.plist" 2>/dev/null
+    done
+    echo "ligado"
+    ;;
+  *)
+    echo "uso: jarvis [abrir|status|logs|reiniciar|parar|ligar]"; exit 1 ;;
+esac

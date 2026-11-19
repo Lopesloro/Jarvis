@@ -1,0 +1,4 @@
+#!/bin/zsh
+source "$(dirname "$0")/_ambiente.sh"
+cd "$JARVIS_RAIZ/core"
+exec "$JARVIS_RAIZ/core/.venv/bin/python" -m jarvis_core.agendador

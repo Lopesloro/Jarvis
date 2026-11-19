@@ -16,6 +16,7 @@
 import makeWASocket, {
   Browsers,
   DisconnectReason,
+  fetchLatestWaWebVersion,
   isJidGroup,
   jidNormalizedUser,
   useMultiFileAuthState,
@@ -25,6 +26,7 @@ import pino from "pino";
 import qrcode from "qrcode-terminal";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { rmSync, writeFileSync } from "node:fs";
 import * as readline from "node:readline";
 import { paraLinha, type Eu } from "./extract.js";
 import { Store } from "./store.js";
@@ -33,6 +35,20 @@ const PODE_ENVIAR = process.env.JARVIS_WA_ALLOW_SEND === "1";
 
 function emitir(evento: Record<string, unknown>): void {
   process.stdout.write(JSON.stringify(evento) + "\n");
+}
+
+/** Estado em arquivo para a API mostrar o QR e a conexão na interface. */
+function gravarEstado(status: string, qr?: string): void {
+  const dir = argumento("--data-dir", join(homedir(), ".jarvis", "whatsapp"));
+  try {
+    writeFileSync(join(dir, "status.json"), JSON.stringify({ status, em: new Date().toISOString() }), {
+      mode: 0o600,
+    });
+    if (qr) writeFileSync(join(dir, "qr.txt"), qr, { mode: 0o600 });
+    else rmSync(join(dir, "qr.txt"), { force: true });
+  } catch (e) {
+    process.stderr.write(`falha ao gravar estado: ${(e as Error).message}\n`);
+  }
 }
 
 function argumento(nome: string, padrao: string): string {
@@ -49,10 +65,18 @@ let tentativas = 0;
 
 async function iniciar(): Promise<void> {
   const { state, saveCreds } = await useMultiFileAuthState(join(dataDir, "auth"));
+  // A versão embutida no Baileys envelhece e o WhatsApp derruba a conexão antes do QR.
+  let version: [number, number, number] | undefined;
+  try {
+    version = (await fetchLatestWaWebVersion({})).version as [number, number, number];
+  } catch (e) {
+    log.warn({ e }, "não deu para buscar a versão atual do WhatsApp Web; usando a embutida");
+  }
   sock = makeWASocket({
+    ...(version ? { version } : {}),
     auth: state,
     logger: log,
-    browser: Browsers.macOS("Desktop"), // necessário para receber o histórico completo
+    browser: Browsers.macOS("Chrome"), // "Desktop" passou a ser recusado (428) antes do QR
     syncFullHistory: true,
     markOnlineOnConnect: false, // o celular continua recebendo notificações
     generateHighQualityLinkPreview: false,
@@ -65,6 +89,7 @@ async function iniciar(): Promise<void> {
     if (qr) {
       qrcode.generate(qr, { small: true }, (code) => process.stderr.write(code + "\n"));
       emitir({ type: "qr", data: qr });
+      gravarEstado("qr", qr);
     }
     if (connection === "open") {
       tentativas = 0;
@@ -72,6 +97,7 @@ async function iniciar(): Promise<void> {
       store.setMeta("meu_jid", eu.jid);
       if (eu.lid) store.setMeta("meu_lid", eu.lid);
       emitir({ type: "status", status: "connected" });
+      gravarEstado("connected");
       try {
         const grupos = await s.groupFetchAllParticipating();
         for (const g of Object.values(grupos)) store.salvarChat(g.id, g.subject ?? null, true, 0);
@@ -81,6 +107,7 @@ async function iniciar(): Promise<void> {
     }
     if (connection === "close") {
       emitir({ type: "status", status: "disconnected" });
+      gravarEstado("disconnected");
       const codigo = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output
         ?.statusCode;
       if (codigo === DisconnectReason.loggedOut) {

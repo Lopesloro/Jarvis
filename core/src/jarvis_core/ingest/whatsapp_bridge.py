@@ -69,3 +69,29 @@ def ler_conversas(db: Path, desde: datetime) -> list[tuple[Item, list[Mensagem]]
         return saida
     finally:
         con.close()
+
+
+def historico_da_conversa(db: Path, jid: str, limite: int = HISTORICO) -> list[Mensagem]:
+    """Últimas mensagens de uma conversa, em ordem cronológica (para o rascunho)."""
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        meu = con.execute("SELECT valor FROM meta WHERE chave = 'meu_jid'").fetchone()
+        meu_jid = meu["valor"] if meu else ""
+        linhas = con.execute(
+            """SELECT m.autor_jid, m.de_mim, m.texto, m.enviada_em, c.nome AS autor_nome
+                 FROM mensagens m LEFT JOIN contatos c ON c.jid = m.autor_jid
+                WHERE m.jid = ? AND m.texto <> ''
+             ORDER BY m.enviada_em DESC LIMIT ?""",
+            (jid, limite),
+        ).fetchall()[::-1]
+        return [
+            Mensagem(
+                autor=_pessoa(meu_jid if r["de_mim"] else r["autor_jid"], r["autor_nome"], meu_jid),
+                texto=r["texto"],
+                enviada_em=datetime.fromtimestamp(r["enviada_em"], UTC),
+            )
+            for r in linhas
+        ]
+    finally:
+        con.close()

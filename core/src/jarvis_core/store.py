@@ -7,7 +7,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jarvis_core.models import Faixa, Item, Triagem
+from jarvis_core.models import Evento, Faixa, Item, Triagem
 
 _ESQUEMA = """
 CREATE TABLE IF NOT EXISTS itens (
@@ -29,14 +29,114 @@ CREATE TABLE IF NOT EXISTS decisoes (
   observacao TEXT,
   em TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS eventos (
+  id TEXT PRIMARY KEY,
+  titulo TEXT NOT NULL,
+  inicio TEXT NOT NULL,
+  fim TEXT NOT NULL,
+  evento_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS eventos_inicio ON eventos (inicio);
+CREATE TABLE IF NOT EXISTS rascunhos (
+  item_id TEXT PRIMARY KEY,
+  texto TEXT NOT NULL,
+  em TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS estado (
+  chave TEXT PRIMARY KEY,
+  valor TEXT NOT NULL,
+  em TEXT NOT NULL
+);
 """
 
 
 class Store:
     def __init__(self, caminho: Path | str) -> None:
-        self.con = sqlite3.connect(str(caminho), check_same_thread=False)
+        self.con = sqlite3.connect(str(caminho), check_same_thread=False, timeout=15)
         self.con.row_factory = sqlite3.Row
+        self.con.execute("PRAGMA journal_mode = WAL")  # API e agendador abrem o mesmo banco
         self.con.executescript(_ESQUEMA)
+
+    # --- itens ----------------------------------------------------------------------------
+
+    def existe(self, item_id: str) -> bool:
+        return (
+            self.con.execute("SELECT 1 FROM itens WHERE id = ?", (item_id,)).fetchone() is not None
+        )
+
+    def obter(self, item_id: str) -> dict | None:
+        r = self.con.execute(
+            "SELECT item_json, triagem_json, resolvido FROM itens WHERE id = ?", (item_id,)
+        ).fetchone()
+        if r is None:
+            return None
+        rasc = self.con.execute(
+            "SELECT texto FROM rascunhos WHERE item_id = ?", (item_id,)
+        ).fetchone()
+        return {
+            "item": json.loads(r["item_json"]),
+            "triagem": json.loads(r["triagem_json"]),
+            "resolvido": bool(r["resolvido"]),
+            "rascunho": rasc["texto"] if rasc else None,
+        }
+
+    def item_modelo(self, item_id: str) -> Item | None:
+        r = self.con.execute("SELECT item_json FROM itens WHERE id = ?", (item_id,)).fetchone()
+        return Item.model_validate_json(r["item_json"]) if r else None
+
+    def contagem(self) -> dict[str, int]:
+        linhas = self.con.execute(
+            "SELECT faixa, COUNT(*) AS n FROM itens WHERE resolvido = 0 GROUP BY faixa"
+        ).fetchall()
+        return {r["faixa"]: r["n"] for r in linhas}
+
+    # --- rascunhos ------------------------------------------------------------------------
+
+    def salvar_rascunho(self, item_id: str, texto: str) -> None:
+        with self.con:
+            self.con.execute(
+                "INSERT OR REPLACE INTO rascunhos VALUES (?, ?, ?)",
+                (item_id, texto, datetime.now(UTC).isoformat()),
+            )
+
+    # --- agenda ---------------------------------------------------------------------------
+
+    def substituir_eventos(self, eventos: list[Evento]) -> None:
+        with self.con:
+            self.con.execute("DELETE FROM eventos")
+            self.con.executemany(
+                "INSERT OR REPLACE INTO eventos VALUES (?, ?, ?, ?, ?)",
+                [
+                    (e.id, e.titulo, e.inicio.isoformat(), e.fim.isoformat(), e.model_dump_json())
+                    for e in eventos
+                ],
+            )
+
+    def eventos(self, inicio: datetime, fim: datetime) -> list[Evento]:
+        linhas = self.con.execute(
+            "SELECT evento_json FROM eventos WHERE inicio < ? AND fim > ? ORDER BY inicio",
+            (fim.isoformat(), inicio.isoformat()),
+        ).fetchall()
+        return [Evento.model_validate_json(r["evento_json"]) for r in linhas]
+
+    # --- estado dos coletores -------------------------------------------------------------
+
+    def set_estado(self, chave: str, valor: object) -> None:
+        with self.con:
+            self.con.execute(
+                "INSERT OR REPLACE INTO estado VALUES (?, ?, ?)",
+                (chave, json.dumps(valor, ensure_ascii=False), datetime.now(UTC).isoformat()),
+            )
+
+    def estado(self) -> dict[str, dict]:
+        return {
+            r["chave"]: {"valor": json.loads(r["valor"]), "em": r["em"]}
+            for r in self.con.execute("SELECT chave, valor, em FROM estado")
+        }
+
+    def get_estado(self, chave: str, padrao: object = None) -> object:
+        r = self.con.execute("SELECT valor FROM estado WHERE chave = ?", (chave,)).fetchone()
+        return json.loads(r["valor"]) if r else padrao
 
     def salvar(self, item: Item, triagem: Triagem) -> None:
         # Mensagem nova na mesma conversa substitui o item anterior dela.

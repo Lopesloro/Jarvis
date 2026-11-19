@@ -1,24 +1,44 @@
-# Copie para ~/.jarvis/jarvis.toml e ajuste. Este arquivo NÃO vai para o git.
+# Copiado para ~/.jarvis/jarvis.toml pelo scripts/instalar.sh. Este arquivo NÃO vai para o git.
+# As mudanças valem no próximo ciclo do agendador (segundos), sem reiniciar nada.
 
 [geral]
 fuso = "America/Sao_Paulo"
-meu_nome_whatsapp = "Gabriel"       # usado no parser de exportação
+meu_nome_whatsapp = "Gabriel"
 
 [prioridade]
-# e-mails ou jids do WhatsApp (5519...@s.whatsapp.net)
+# e-mails ou JIDs do WhatsApp (5519...@s.whatsapp.net)
 vips = []
 silencio_inicio = "23:00"
 silencio_fim = "07:00"
 
 [llm]
-provedor = "ollama"                  # trocar para nuvem é decisão explícita
-modelo = "qwen2.5:7b-instruct"
-tempo_limite_s = 8
+# Modelo local no Ollama: sem custo por token e nada sai do Mac.
+# Com mais memória livre, troque por "qwen2.5:7b" (rode antes: ollama pull qwen2.5:7b).
+ligado = true
+modelo = "qwen2.5:3b"
+tempo_limite_s = 20
 
 [whatsapp]
 data_dir = "~/.jarvis/whatsapp"
 permitir_envio = false
 
+[gmail]
+# 1) Ative a verificação em duas etapas da conta Google.
+# 2) Gere uma senha de app em https://myaccount.google.com/apppasswords
+# 3) Preencha abaixo. Acesso só leitura (não marca nada como lido).
+usuario = ""
+senha_app = ""
+dias = 3
+
+[agenda]
+# Google Agenda → Configurações → sua agenda → "Endereço secreto no formato iCal"
+ics_urls = []
+
+[resumo]
+hora = "07:30"
+falado = true
+voz = "Luciana"
+notificar = true
+
 [api]
 porta = 8765
-# o token fica em JARVIS_TOKEN (Keychain/launchd), nunca aqui

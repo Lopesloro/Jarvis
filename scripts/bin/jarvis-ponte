@@ -1,0 +1,10 @@
+#!/bin/zsh
+source "$(dirname "$0")/_ambiente.sh"
+cd "$JARVIS_RAIZ/bridge/whatsapp"
+NODE="$(cat "$JARVIS_HOME/node_path" 2>/dev/null)"
+[ -x "$NODE" ] || NODE="$(command -v node)"
+# Sessão encerrada no celular: a ponte sai com código 2; espera para não martelar.
+"$NODE" dist/index.js --data-dir "$JARVIS_HOME/whatsapp" >/dev/null
+codigo=$?
+[ $codigo -eq 2 ] && sleep 300
+exit $codigo

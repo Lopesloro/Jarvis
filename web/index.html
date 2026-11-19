@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jarvis</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icone.svg">
+<style>
+  :root {
+    --c0: #0A0A0A; --c1: #3A3A3A; --c2: #7A7A7A; --c3: #BDBDBD; --c4: #EDEDED; --c5: #FAFAFA;
+    --fundo: var(--c5); --texto: var(--c0); --suave: var(--c2); --linha: var(--c3);
+    --cartao: #FFFFFF; --forte: var(--c0); --sobre-forte: var(--c5);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fundo: var(--c0); --texto: var(--c5); --suave: var(--c3); --linha: var(--c1);
+      --cartao: #141414; --forte: var(--c5); --sobre-forte: var(--c0);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fundo); color: var(--texto); }
+  body {
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased; padding-bottom: env(safe-area-inset-bottom);
+  }
+  button, a { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--forte); outline-offset: 2px; }
+  .num { font-variant-numeric: tabular-nums; }
+  header {
+    position: sticky; top: 0; z-index: 5; background: var(--fundo);
+    border-bottom: 1px solid var(--linha); padding: 14px 16px 0;
+  }
+  .topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: .02em; font-weight: 800; }
+  .estado { color: var(--suave); font-size: 13px; }
+  nav { display: flex; gap: 4px; margin-top: 10px; overflow-x: auto; }
+  nav button {
+    border: 0; background: none; padding: 10px 12px; min-height: 44px; cursor: pointer;
+    color: var(--suave); font-weight: 600; border-bottom: 3px solid transparent;
+  }
+  nav button[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--forte); }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  .resumo {
+    border: 2px solid var(--forte); padding: 14px 16px; margin-bottom: 18px;
+    display: flex; gap: 12px; align-items: flex-start; justify-content: space-between;
+  }
+  .resumo p { margin: 0; }
+  .botao {
+    border: 2px solid var(--forte); background: none; padding: 8px 14px; min-height: 44px;
+    cursor: pointer; font-weight: 600; white-space: nowrap;
+  }
+  .botao.cheio { background: var(--forte); color: var(--sobre-forte); }
+  .botao:disabled { opacity: .5; cursor: wait; }
+  .lista { display: grid; gap: 10px; }
+  .cartao {
+    display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start;
+    padding: 14px; background: var(--cartao); border: 1px solid var(--linha); cursor: pointer;
+    text-align: left; width: 100%;
+  }
+  .cartao.agora { background: var(--forte); color: var(--sobre-forte); border-color: var(--forte); }
+  .cartao.agora .meta { color: inherit; opacity: .75; }
+  .cartao.hoje { border-width: 3px; border-color: var(--forte); }
+  .cartao.arquivar { opacity: .6; }
+  .nota { font-size: 40px; font-weight: 900; line-height: 1; letter-spacing: -.03em; }
+  .quem { font-weight: 700; }
+  .meta { color: var(--suave); font-size: 13px; }
+  .texto { margin: 4px 0; overflow-wrap: anywhere; }
+  .motivo { font-size: 14px; }
+  .vazio { color: var(--suave); padding: 32px 0; text-align: center; }
+  .filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .filtros button {
+    border: 1px solid var(--linha); background: none; padding: 6px 12px; min-height: 36px;
+    cursor: pointer;
+  }
+  .filtros button[aria-pressed="true"] { background: var(--forte); color: var(--sobre-forte); border-color: var(--forte); }
+  .evento { display: grid; grid-template-columns: 70px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--linha); }
+  .evento .hora { font-weight: 800; font-size: 18px; }
+  dialog {
+    width: min(720px, 100vw); max-height: 92vh; border: 2px solid var(--forte); padding: 0;
+    background: var(--cartao); color: var(--texto);
+  }
+  dialog::backdrop { background: rgba(10, 10, 10, .55); }
+  .det { padding: 18px; display: grid; gap: 14px; }
+  .det h2 { margin: 0; font-size: 20px; }
+  .det .corpo { white-space: pre-wrap; overflow-wrap: anywhere; border-left: 3px solid var(--linha); padding-left: 12px; max-height: 40vh; overflow: auto; }
+  .det ul { margin: 0; padding-left: 18px; }
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  textarea {
+    width: 100%; min-height: 120px; font: inherit; padding: 10px; border: 1px solid var(--linha);
+    background: var(--fundo); color: var(--texto);
+  }
+  .fonte { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--linha); }
+  .fonte b { display: block; }
+  .ok::before { content: "● "; }
+  .falha::before { content: "○ "; }
+  .qr { background: #fff; padding: 16px; display: inline-block; margin: 8px 0; }
+  .qr svg { width: 260px; height: 260px; display: block; }
+  code { background: var(--c4); color: var(--c0); padding: 1px 5px; }
+  .login { max-width: 420px; margin: 15vh auto; padding: 16px; display: grid; gap: 12px; }
+  .login input { font: inherit; padding: 12px; border: 2px solid var(--forte); background: none; color: inherit; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<dialog id="dlg"><div class="det" id="det"></div></dialog>
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// O token chega pelo atalho "jarvis abrir" (#t=...) e fica só neste navegador.
+(function pegarToken() {
+  const m = location.hash.match(/t=([^&]+)/);
+  if (m) {
+    try { localStorage.setItem("jarvis_token", decodeURIComponent(m[1])); } catch {}
+    history.replaceState(null, "", location.pathname);
+  }
+})();
+const token = () => { try { return localStorage.getItem("jarvis_token") || ""; } catch { return ""; } };
+
+async function api(caminho, opcoes = {}) {
+  const r = await fetch(caminho, {
+    ...opcoes,
+    headers: { "Authorization": "Bearer " + token(), "Content-Type": "application/json", ...(opcoes.headers || {}) },
+  });
+  if (r.status === 401) { telaLogin(); throw new Error("401"); }
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
+const estado = { aba: "agora", faixas: new Set(["agora", "hoje"]), canal: "", status: null };
+const CANAL = { gmail: "E-mail", whatsapp: "WhatsApp", agenda: "Agenda" };
+const FAIXA = { agora: "Agora", hoje: "Hoje", semana: "Semana", arquivar: "Arquivar" };
+
+function quando(iso) {
+  const d = new Date(iso), agora = new Date();
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === agora.toDateString() ? hora
+    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + hora;
+}
+
+function telaLogin() {
+  $("#app").innerHTML = `
+    <form class="login" id="flogin">
+      <h1>Jarvis</h1>
+      <p class="meta">Abra pelo atalho <b>Jarvis</b> na Mesa (ou rode <code>jarvis abrir</code> no Terminal). Se preferir, cole o token aqui:</p>
+      <input id="tk" type="password" autocomplete="off" placeholder="token" aria-label="token">
+      <button class="botao cheio">Entrar</button>
+    </form>`;
+  $("#flogin").onsubmit = (e) => {
+    e.preventDefault();
+    try { localStorage.setItem("jarvis_token", $("#tk").value.trim()); } catch {}
+    iniciar();
+  };
+}
+
+function casca() {
+  const nomes = { agora: "Agora", inbox: "Inbox", agenda: "Agenda", ajustes: "Conexões" };
+  $("#app").innerHTML = `
+    <header>
+      <div class="topo"><h1>JARVIS</h1><span class="estado" id="est">carregando…</span></div>
+      <nav role="tablist">
+        ${Object.keys(nomes).map((a) => `<button role="tab" data-aba="${a}" aria-selected="${estado.aba === a}">${nomes[a]}</button>`).join("")}
+      </nav>
+    </header>
+    <main id="conteudo"></main>`;
+  document.querySelectorAll("nav button").forEach((b) => b.onclick = () => { estado.aba = b.dataset.aba; casca(); render(); atualizarEstado(); });
+}
+
+function cartao(l) {
+  const it = l.item, tr = l.triagem;
+  const quem = it.remetente.nome || it.remetente.id.split("@")[0];
+  const motivo = tr.motivo_llm || (tr.motivos[0] && tr.motivos[0].explicacao) || "";
+  return `<button class="cartao ${tr.faixa}" data-id="${esc(it.id)}">
+    <div class="nota num">${tr.nota}</div>
+    <div>
+      <div class="quem">${esc(quem)}${it.eh_grupo ? " · " + esc(it.assunto) : ""}</div>
+      <div class="meta">${CANAL[it.canal] || it.canal} · ${quando(it.recebido_em)} · ${esc(tr.acao_sugerida)}</div>
+      ${it.canal === "gmail" && it.assunto ? `<div class="texto"><b>${esc(it.assunto)}</b></div>` : ""}
+      <div class="texto">${esc(it.texto.slice(0, 220))}</div>
+      <div class="motivo">${esc(motivo)}</div>
+    </div>
+  </button>`;
+}
+
+function ligarCartoes() {
+  document.querySelectorAll(".cartao").forEach((c) => c.onclick = () => abrirItem(c.dataset.id));
+}
+
+async function renderAgora(el) {
+  const [itens, resumo] = await Promise.all([api("/v1/agora"), api("/v1/resumo")]);
+  el.innerHTML = `
+    <div class="resumo"><p>${esc(resumo.texto)}</p><button class="botao" id="ouvir">Ouvir</button></div>
+    <div class="lista">${itens.length ? itens.map(cartao).join("") : `<div class="vazio">Nada urgente agora.</div>`}</div>`;
+  $("#ouvir").onclick = async (e) => {
+    e.target.disabled = true;
+    try { await api("/v1/falar", { method: "POST" }); } finally { e.target.disabled = false; }
+  };
+  ligarCartoes();
+}
+
+async function renderInbox(el) {
+  const q = new URLSearchParams();
+  estado.faixas.forEach((f) => q.append("faixa", f));
+  if (estado.canal) q.set("canal", estado.canal);
+  q.set("limite", "200");
+  const itens = await api("/v1/inbox?" + q);
+  el.innerHTML = `
+    <div class="filtros">
+      ${Object.keys(FAIXA).map((f) => `<button data-f="${f}" aria-pressed="${estado.faixas.has(f)}">${FAIXA[f]}</button>`).join("")}
+      <span style="width:12px"></span>
+      ${["", "whatsapp", "gmail"].map((c) => `<button data-c="${c}" aria-pressed="${estado.canal === c}">${c ? CANAL[c] : "Todos"}</button>`).join("")}
+    </div>
+    <div class="lista">${itens.length ? itens.map(cartao).join("") : `<div class="vazio">Nada aqui.</div>`}</div>`;
+  el.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => {
+    const f = b.dataset.f;
+    if (estado.faixas.has(f)) estado.faixas.delete(f); else estado.faixas.add(f);
+    render();
+  });
+  el.querySelectorAll("[data-c]").forEach((b) => b.onclick = () => { estado.canal = b.dataset.c; render(); });
+  ligarCartoes();
+}
+
+async function renderAgenda(el) {
+  const evs = await api("/v1/agenda");
+  const hora = (iso) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  el.innerHTML = evs.length ? evs.map((e) => `
+    <div class="evento">
+      <div class="hora num">${hora(e.inicio)}</div>
+      <div><b>${esc(e.titulo)}</b><div class="meta">${esc(e.local)}${e.participantes.length ? " · " + e.participantes.map((p) => esc(p.nome || p.id)).join(", ") : ""}</div></div>
+    </div>`).join("")
+    : `<div class="vazio">${estado.status && !estado.status.config.agenda ? "Agenda não conectada. Veja a aba Conexões." : "Nenhum compromisso hoje."}</div>`;
+}
+
+function linhaFonte(nome, s, dica) {
+  const v = s ? s.valor : null;
+  const ok = v && v.ok;
+  return `<div class="fonte"><div><b class="${ok ? "ok" : "falha"}">${nome}</b>
+    <span class="meta">${esc(v ? v.detalhe || "" : "aguardando o agendador")}${s ? " · " + quando(s.em) : ""}</span>
+    ${!ok && dica ? `<div class="meta">${dica}</div>` : ""}</div></div>`;
+}
+
+async function renderAjustes(el) {
+  const s = estado.status = await api("/v1/status");
+  const e = s.estado, p = s.ponte;
+  const llm = e.llm && e.llm.valor;
+  el.innerHTML = `
+    <h2>WhatsApp</h2>
+    ${p.status === "connected" ? `<p class="ok">Conectado como aparelho vinculado, só leitura.</p>`
+      : p.qr_svg ? `<p>No celular: WhatsApp → <b>Configurações → Aparelhos conectados → Conectar um aparelho</b> e aponte a câmera para o código:</p><div class="qr">${p.qr_svg}</div>`
+      : `<p class="falha">Ponte ${esc(p.status)}. Ela sobe sozinha com o Mac; se continuar assim, rode <code>jarvis status</code>.</p>`}
+    <h2>Fontes</h2>
+    ${linhaFonte("WhatsApp", e["fonte:whatsapp"])}
+    ${linhaFonte("Gmail", e["fonte:gmail"], "Edite <code>~/.jarvis/jarvis.toml</code>, seção [gmail], com seu e-mail e uma senha de app (myaccount.google.com/apppasswords).")}
+    ${linhaFonte("Agenda", e["fonte:agenda"], "Cole o “Endereço secreto no formato iCal” do Google Agenda em [agenda] ics_urls no <code>~/.jarvis/jarvis.toml</code>.")}
+    <div class="fonte"><div><b class="${llm && llm.ok ? "ok" : "falha"}">Modelo local</b>
+      <span class="meta">${esc(s.config.modelo)} no Ollama · sem custo por token, nada sai do Mac</span></div></div>
+    <p class="meta">Versão ${esc(s.versao)} · ${s.config.vips} VIPs · mudanças no jarvis.toml valem sem reiniciar.</p>`;
+}
+
+async function render() {
+  const el = $("#conteudo");
+  if (!el) return;
+  try {
+    if (estado.aba === "agora") await renderAgora(el);
+    else if (estado.aba === "inbox") await renderInbox(el);
+    else if (estado.aba === "agenda") await renderAgenda(el);
+    else await renderAjustes(el);
+  } catch (err) {
+    if (err.message !== "401") el.innerHTML = `<div class="vazio">Erro: ${esc(err.message)}</div>`;
+  }
+}
+
+async function atualizarEstado() {
+  try {
+    const s = estado.status = await api("/v1/status");
+    const c = s.contagem;
+    const wa = s.ponte.status === "connected" ? "WhatsApp ligado" : "WhatsApp desligado";
+    const el = $("#est");
+    if (el) el.textContent = `${c.agora || 0} agora · ${c.hoje || 0} hoje · ${wa}`;
+  } catch {}
+}
+
+async function abrirItem(id) {
+  const d = await api("/v1/itens/" + encodeURIComponent(id));
+  const it = d.item, tr = d.triagem;
+  const quem = it.remetente.nome || it.remetente.id;
+  const sinal = (n) => (n > 0 ? "+" : "") + n;
+  $("#det").innerHTML = `
+    <div class="topo"><h2>${esc(quem)}</h2><button class="botao" id="fechar">Fechar</button></div>
+    <div class="meta">${CANAL[it.canal]} · ${quando(it.recebido_em)}${it.assunto ? " · " + esc(it.assunto) : ""}</div>
+    <div><span class="nota num">${tr.nota}</span> <b>${FAIXA[tr.faixa]}</b> · sugestão: ${esc(tr.acao_sugerida)}</div>
+    <div class="corpo">${esc(it.texto)}</div>
+    <div><b>Por que essa nota</b><ul>
+      ${tr.motivos.map((m) => `<li class="num">${sinal(m.pontos)} · ${esc(m.explicacao)}</li>`).join("")}
+      ${tr.ajuste_llm ? `<li class="num">${sinal(tr.ajuste_llm)} · modelo local: ${esc(tr.motivo_llm)}</li>` : ""}
+    </ul></div>
+    <div class="acoes">
+      <button class="botao cheio" data-d="resolver">Resolvido</button>
+      <button class="botao" data-d="adiar">Adiar</button>
+      <button class="botao" data-d="arquivar">Arquivar</button>
+    </div>
+    <div class="acoes"><span class="meta">Deveria ser:</span>
+      ${Object.keys(FAIXA).map((f) => `<button class="botao" data-rotulo="${f}">${FAIXA[f]}</button>`).join("")}
+    </div>
+    <div>
+      <div class="acoes"><button class="botao" id="gerar">${d.rascunho ? "Gerar outro rascunho" : "Gerar rascunho"}</button>
+      <button class="botao" id="copiar">Copiar</button></div>
+      <p class="meta">O Jarvis nunca envia nada. Copie, revise e mande você mesmo.</p>
+      <textarea id="rasc" placeholder="O rascunho aparece aqui.">${esc(d.rascunho || "")}</textarea>
+    </div>`;
+  const dlg = $("#dlg");
+  $("#fechar").onclick = () => dlg.close();
+  const decidir = async (corpo) => {
+    await api(`/v1/itens/${encodeURIComponent(id)}/decisao`, { method: "POST", body: JSON.stringify(corpo) });
+    dlg.close(); render(); atualizarEstado();
+  };
+  $("#det").querySelectorAll("[data-d]").forEach((b) => b.onclick = () => decidir({ decisao: b.dataset.d }));
+  $("#det").querySelectorAll("[data-rotulo]").forEach((b) => b.onclick = () => decidir({ decisao: "resolver", nota_correta: b.dataset.rotulo }));
+  $("#gerar").onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = "Pensando…";
+    try { $("#rasc").value = (await api(`/v1/itens/${encodeURIComponent(id)}/rascunho`, { method: "POST" })).rascunho; }
+    catch (err) { $("#rasc").value = "Não deu: " + err.message; }
+    finally { e.target.disabled = false; e.target.textContent = "Gerar outro rascunho"; }
+  };
+  $("#copiar").onclick = () => navigator.clipboard.writeText($("#rasc").value);
+  dlg.showModal();
+}
+
+function iniciar() {
+  if (!token()) return telaLogin();
+  casca(); render(); atualizarEstado();
+}
+setInterval(() => { if (!$("#dlg").open && token() && $("#conteudo")) { render(); atualizarEstado(); } }, 15000);
+iniciar();
+</script>
+</body>
+</html>
