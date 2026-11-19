@@ -1,4 +1,20 @@
 #!/usr/bin/env bash
-# Mantém a documentação no cofre do Obsidian em dia. Nunca bloqueia o commit.
+# Depois de cada commit (nunca bloqueia):
+#  1. espelha a documentação no cofre do Obsidian;
+#  2. no Mac, se o commit mexeu em código, recompila a ponte e reinicia os serviços do launchd.
 cd "$(git rev-parse --show-toplevel)"
 scripts/sincronizar-obsidian.sh >/dev/null 2>&1 || true
+
+[ "$(uname)" = Darwin ] && command -v launchctl >/dev/null || exit 0
+mudou=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null)
+echo "$mudou" | grep -qE '^(core/src/|core/pyproject.toml|core/uv.lock|bridge/whatsapp/(src/|package)|web/)' || exit 0
+(
+  if echo "$mudou" | grep -q '^bridge/whatsapp/'; then
+    (cd bridge/whatsapp && npm ci --silent && npm run build --silent)
+  fi
+  if echo "$mudou" | grep -qE '^core/(pyproject.toml|uv.lock)'; then
+    (cd core && uv sync --extra dev -q)
+  fi
+  scripts/jarvis reiniciar
+) >> "$HOME/.jarvis/logs/atualizacao.log" 2>&1 &
+echo "↻ Jarvis sendo atualizado e reiniciado em segundo plano (log: ~/.jarvis/logs/atualizacao.log)"
