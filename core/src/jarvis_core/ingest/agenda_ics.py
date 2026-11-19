@@ -46,7 +46,10 @@ def eventos_do_ics(conteudo: bytes, inicio: datetime, fim: datetime, fuso: str) 
             continue
         fim_ev = comp.get("DTEND")
         ini_utc = _para_utc(ini.dt, tz)
-        fim_utc = _para_utc(fim_ev.dt, tz) if fim_ev else ini_utc + timedelta(hours=1)
+        fim_utc = _para_utc(fim_ev.dt, tz) if fim_ev else ini_utc
+        if fim_utc <= ini_utc:
+            # Sem DTEND a biblioteca repete o início (duração zero): assume 1 h.
+            fim_utc = ini_utc + timedelta(hours=1)
         uid = str(comp.get("UID", ""))
         chave = hashlib.sha1(f"{uid}|{ini_utc.isoformat()}".encode()).hexdigest()[:16]
         saida.append(

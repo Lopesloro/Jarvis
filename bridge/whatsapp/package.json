@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "npm run build && node --test \"dist/**/*.test.js\""
+    "test": "npm run build && node --test --experimental-test-coverage --test-coverage-include='dist/**/*.js' --test-coverage-exclude='dist/**/*.test.js' --test-coverage-exclude='dist/index.js' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"dist/**/*.test.js\""
   },
   "dependencies": {
     "@whiskeysockets/baileys": "7.0.0-rc14",

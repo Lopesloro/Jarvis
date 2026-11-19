@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
+from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import wraps
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 
 from jarvis_core.models import Evento, Faixa, Item, Triagem
 
@@ -50,20 +54,47 @@ CREATE TABLE IF NOT EXISTS estado (
 """
 
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def _travado(metodo: Callable[P, R]) -> Callable[P, R]:
+    """Serializa o acesso à conexão.
+
+    A API roda as rotas síncronas num pool de threads e todas usam a mesma conexão. Sem a
+    trava, duas consultas simultâneas embaralham o cursor (IndexError visto em produção no
+    /v1/resumo, 19/11/2026).
+    """
+
+    @wraps(metodo)
+    def envolvido(*args: P.args, **kwargs: P.kwargs) -> R:
+        with args[0]._trava:  # type: ignore[attr-defined]
+            return metodo(*args, **kwargs)
+
+    return envolvido
+
+
 class Store:
     def __init__(self, caminho: Path | str) -> None:
+        self._trava = threading.RLock()
         self.con = sqlite3.connect(str(caminho), check_same_thread=False, timeout=15)
         self.con.row_factory = sqlite3.Row
         self.con.execute("PRAGMA journal_mode = WAL")  # API e agendador abrem o mesmo banco
         self.con.executescript(_ESQUEMA)
 
+    @_travado
+    def fechar(self) -> None:
+        self.con.close()
+
     # --- itens ----------------------------------------------------------------------------
 
+    @_travado
     def existe(self, item_id: str) -> bool:
         return (
             self.con.execute("SELECT 1 FROM itens WHERE id = ?", (item_id,)).fetchone() is not None
         )
 
+    @_travado
     def obter(self, item_id: str) -> dict | None:
         r = self.con.execute(
             "SELECT item_json, triagem_json, resolvido FROM itens WHERE id = ?", (item_id,)
@@ -80,10 +111,12 @@ class Store:
             "rascunho": rasc["texto"] if rasc else None,
         }
 
+    @_travado
     def item_modelo(self, item_id: str) -> Item | None:
         r = self.con.execute("SELECT item_json FROM itens WHERE id = ?", (item_id,)).fetchone()
         return Item.model_validate_json(r["item_json"]) if r else None
 
+    @_travado
     def contagem(self) -> dict[str, int]:
         linhas = self.con.execute(
             "SELECT faixa, COUNT(*) AS n FROM itens WHERE resolvido = 0 GROUP BY faixa"
@@ -92,6 +125,7 @@ class Store:
 
     # --- rascunhos ------------------------------------------------------------------------
 
+    @_travado
     def salvar_rascunho(self, item_id: str, texto: str) -> None:
         with self.con:
             self.con.execute(
@@ -101,6 +135,7 @@ class Store:
 
     # --- agenda ---------------------------------------------------------------------------
 
+    @_travado
     def substituir_eventos(self, eventos: list[Evento]) -> None:
         with self.con:
             self.con.execute("DELETE FROM eventos")
@@ -112,6 +147,7 @@ class Store:
                 ],
             )
 
+    @_travado
     def eventos(self, inicio: datetime, fim: datetime) -> list[Evento]:
         linhas = self.con.execute(
             "SELECT evento_json FROM eventos WHERE inicio < ? AND fim > ? ORDER BY inicio",
@@ -121,6 +157,7 @@ class Store:
 
     # --- estado dos coletores -------------------------------------------------------------
 
+    @_travado
     def set_estado(self, chave: str, valor: object) -> None:
         with self.con:
             self.con.execute(
@@ -128,16 +165,19 @@ class Store:
                 (chave, json.dumps(valor, ensure_ascii=False), datetime.now(UTC).isoformat()),
             )
 
+    @_travado
     def estado(self) -> dict[str, dict]:
         return {
             r["chave"]: {"valor": json.loads(r["valor"]), "em": r["em"]}
             for r in self.con.execute("SELECT chave, valor, em FROM estado")
         }
 
+    @_travado
     def get_estado(self, chave: str, padrao: object = None) -> object:
         r = self.con.execute("SELECT valor FROM estado WHERE chave = ?", (chave,)).fetchone()
         return json.loads(r["valor"]) if r else padrao
 
+    @_travado
     def salvar(self, item: Item, triagem: Triagem) -> None:
         # Mensagem nova na mesma conversa substitui o item anterior dela.
         with self.con:
@@ -163,6 +203,7 @@ class Store:
                 ),
             )
 
+    @_travado
     def listar(
         self, faixas: list[Faixa] | None = None, canal: str | None = None, limite: int = 100
     ) -> list[dict]:
@@ -181,6 +222,7 @@ class Store:
             for r in self.con.execute(sql, args)
         ]
 
+    @_travado
     def decidir(
         self, item_id: str, decisao: str, nota_correta: str | None, observacao: str | None
     ) -> bool:

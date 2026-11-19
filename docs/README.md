@@ -9,7 +9,8 @@
 
 Decisões: [ADR-0001](adr/0001-openjarvis-como-base.md) ·
 [0002](adr/0002-whatsapp-aparelho-conectado.md) · [0003](adr/0003-hospedagem-mac-tailscale.md) ·
-[0004](adr/0004-motor-explicavel.md) · [0005](adr/0005-pwa-unico.md)
+[0004](adr/0004-motor-explicavel.md) · [0005](adr/0005-pwa-unico.md) ·
+[0006](adr/0006-coleta-sem-oauth-e-navegador-da-ponte.md)
 
 Execução: [orquestração FCC/ECC](../orquestracao/README.md) ·
 [gate do /harvey](../orquestracao/harvey-gate.md)

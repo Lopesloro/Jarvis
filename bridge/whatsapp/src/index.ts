@@ -28,6 +28,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { rmSync, writeFileSync } from "node:fs";
 import * as readline from "node:readline";
+import { tratarComando } from "./comandos.js";
 import { paraLinha, type Eu } from "./extract.js";
 import { Store } from "./store.js";
 
@@ -76,7 +77,9 @@ async function iniciar(): Promise<void> {
     ...(version ? { version } : {}),
     auth: state,
     logger: log,
-    browser: Browsers.macOS("Chrome"), // "Desktop" passou a ser recusado (428) antes do QR
+    // "Desktop" recebe mais histórico, mas foi recusado (428) antes do QR em 19/11/2026.
+    // Ver docs/adr/0006. Para testar de novo: JARVIS_WA_NAVEGADOR=Desktop.
+    browser: Browsers.macOS(process.env.JARVIS_WA_NAVEGADOR === "Desktop" ? "Desktop" : "Chrome"),
     syncFullHistory: true,
     markOnlineOnConnect: false, // o celular continua recebendo notificações
     generateHighQualityLinkPreview: false,
@@ -152,27 +155,14 @@ async function iniciar(): Promise<void> {
   });
 }
 
-readline.createInterface({ input: process.stdin }).on("line", async (linha) => {
-  let cmd: { type?: string; jid?: string; text?: string };
-  try {
-    cmd = JSON.parse(linha);
-  } catch {
-    return emitir({ type: "error", message: "JSON inválido no stdin" });
-  }
-  if (cmd.type === "send") {
-    if (!PODE_ENVIAR) {
-      return emitir({ type: "error", message: "Envio desligado (modo só leitura). Defina JARVIS_WA_ALLOW_SEND=1." });
-    }
-    if (!sock || !cmd.jid || !cmd.text) return emitir({ type: "error", message: "send exige jid e text" });
-    try {
-      await sock.sendMessage(cmd.jid, { text: cmd.text });
-    } catch (e) {
-      emitir({ type: "error", message: `Falha no envio: ${(e as Error).message}` });
-    }
-  } else if (cmd.type === "disconnect") {
-    encerrar(0);
-  }
-});
+readline.createInterface({ input: process.stdin }).on("line", (linha) =>
+  tratarComando(linha, {
+    podeEnviar: PODE_ENVIAR,
+    enviar: sock ? (jid, texto) => sock!.sendMessage(jid, { text: texto }) : null,
+    emitir,
+    encerrar,
+  }),
+);
 
 function encerrar(codigo: number): never {
   sock?.end(undefined);

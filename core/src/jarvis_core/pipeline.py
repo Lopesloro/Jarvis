@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from jarvis_core.ingest.whatsapp_bridge import ler_conversas
@@ -15,6 +15,9 @@ from jarvis_core.store import Store
 
 # Só gasta tempo do modelo local com o que as regras não descartaram de cara.
 NOTA_MINIMA_PARA_LLM = 30
+# Na primeira sincronização chegam dias de conversa: o modelo local levaria horas. Só o que
+# é recente passa pelo LLM; o resto fica com a nota das regras.
+JANELA_LLM = timedelta(hours=12)
 
 AoSalvar = Callable[[Item, Triagem], None]
 
@@ -36,7 +39,8 @@ def processar(
         )
         ctx = replace(ctx_base, historico=historico, contatos_conhecidos=conhecidos)
         triagem = triar(item, ctx)
-        if refinador is not None and triagem.nota >= NOTA_MINIMA_PARA_LLM:
+        recente = ctx_base.agora - item.recebido_em <= JANELA_LLM
+        if refinador is not None and recente and triagem.nota >= NOTA_MINIMA_PARA_LLM:
             triagem = triar(item, ctx, refinador)
         store.salvar(item, triagem)
         if ao_salvar:

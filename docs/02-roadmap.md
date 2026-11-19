@@ -13,6 +13,19 @@ Fase só fecha com o gate aprovado, testes verdes e o README atualizado.
 - [x] API mínima: `/v1/agora`, `/v1/inbox`, `/v1/itens/{id}/decisao`
 - [x] 19 testes Python + 6 testes da ponte
 
+## Estado real (revisão de 19/11/2026)
+As abas do FCC entregaram uma versão funcional de F1–F5 num commit só, com desvios
+registrados no [ADR-0006](adr/0006-coleta-sem-oauth-e-navegador-da-ponte.md). A revisão
+corrigiu: falha de concorrência no banco (o `/v1/resumo` quebrava), texto de terceiros
+indo para o LLM sem delimitação, log do agendador crescendo 17 mil linhas por dia, backlog
+inteiro passando pelo LLM na primeira sincronização e evento sem horário de fim com
+duração zero. Cobertura subiu de 82% para 100% (linhas e ramos), com portões que impedem
+voltar a cair.
+
+**Ainda não feito:** pareamento do WhatsApp (a ponte está esperando o QR), acesso pelo
+celular via Tailscale, push no celular (hoje o aviso é notificação do macOS), transcrição
+de áudio, unificação de contatos e conjunto rotulado da F2.
+
 ## F1 · Conectores (≈ 1 semana)
 | # | Tarefa | Aceite |
 |---|---|---|

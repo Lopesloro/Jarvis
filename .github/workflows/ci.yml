@@ -10,7 +10,8 @@ jobs:
       - run: uv sync --extra dev
       - run: uv run ruff check src tests
       - run: uv run ruff format --check src tests
-      - run: uv run pytest -q
+      - name: testes com cobertura de 100% (linhas e ramos)
+        run: uv run pytest -q
       - name: contratos em dia
         run: uv run --with pyyaml python ../scripts/gerar_contratos.py && git diff --exit-code ../contracts
   bridge:
@@ -21,4 +22,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci
-      - run: npm test
+      - name: tipos, testes e cobertura de 100%
+        run: npm test
+  revisao:
+    name: revisão do /harvey cobre todos os commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: checar
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            scripts/revisao.sh checar "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+          else
+            scripts/revisao.sh checar "" HEAD
+          fi

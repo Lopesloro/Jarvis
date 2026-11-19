@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import stat
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,6 +43,12 @@ def carregar(caminho: Path | None = None) -> Config:
     caminho = caminho or home() / "jarvis.toml"
     if not caminho.exists():
         return Config()
+    if caminho.stat().st_mode & (stat.S_IRWXG | stat.S_IRWXO):
+        # O arquivo guarda a senha de app do Gmail: só o dono pode ler.
+        logging.getLogger("jarvis.config").warning(
+            "%s está legível por outros usuários; corrigindo para 600", caminho
+        )
+        caminho.chmod(0o600)
     dados = tomllib.loads(caminho.read_text(encoding="utf-8"))
     g = dados.get("geral", {})
     p = dados.get("prioridade", {})

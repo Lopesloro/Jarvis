@@ -28,6 +28,7 @@ INTERVALO_GMAIL_S = 120
 INTERVALO_AGENDA_S = 600
 JANELA_COLETA = timedelta(days=3)
 AVISO_SO_SE_MAIS_NOVO_QUE = timedelta(minutes=30)
+INTERVALO_CHECAR_LLM_S = 60
 
 
 def _hhmm(valor: str) -> hora:
@@ -83,6 +84,7 @@ class Agendador:
         self.store = store
         self.ultimo: dict[str, float] = {}
         self.cfg = carregar()
+        self._llm_cache: Ollama | None = None
 
     def _vencido(self, chave: str, intervalo: float) -> bool:
         agora = time.monotonic()
@@ -95,10 +97,14 @@ class Agendador:
         if not self.cfg.llm_ligado:
             self.store.set_estado("llm", {"ok": False, "modelo": "desligado"})
             return None
+        # Perguntar ao Ollama a cada ciclo de 5 s enchia o log (17 mil linhas por dia).
+        if not self._vencido("llm", INTERVALO_CHECAR_LLM_S):
+            return self._llm_cache
         o = Ollama(self.cfg.llm_url, self.cfg.llm_modelo, self.cfg.llm_tempo_limite_s)
         disponivel = o.disponivel()
         self.store.set_estado("llm", {"ok": disponivel, "modelo": self.cfg.llm_modelo})
-        return o if disponivel else None
+        self._llm_cache = o if disponivel else None
+        return self._llm_cache
 
     def _contexto(self, agora: datetime) -> Contexto:
         minhas = {self.cfg.gmail_usuario.lower()} if self.cfg.gmail_usuario else set()
@@ -219,6 +225,7 @@ class Agendador:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # uma linha por requisição é ruído
     store = Store(home() / "jarvis.db")
     ag = Agendador(store)
     log.info("agendador iniciado")

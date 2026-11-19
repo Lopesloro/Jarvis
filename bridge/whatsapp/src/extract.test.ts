@@ -53,3 +53,75 @@ test("souEu ignora o sufixo de dispositivo", () => {
   assert.ok(souEu("5519999990000:12@s.whatsapp.net", EU));
   assert.ok(!souEu("5511988887777@s.whatsapp.net", EU));
 });
+
+test("todos os tipos de conteúdo viram texto legível", async () => {
+  const { conteudo } = await import("./extract.js");
+  const casos: [WAMessage["message"], string, string][] = [
+    [{ extendedTextMessage: { text: "longo" } }, "texto", "longo"],
+    [{ imageMessage: {} }, "imagem", "[imagem]"],
+    [{ videoMessage: { caption: "olha" } }, "video", "olha"],
+    [{ videoMessage: {} }, "video", "[vídeo]"],
+    [{ audioMessage: { ptt: false } }, "audio", "[áudio]"],
+    [{ audioMessage: { ptt: true } }, "audio", "[áudio de voz]"],
+    [{ documentMessage: { caption: "segue" } }, "documento", "segue"],
+    [{ documentMessage: { fileName: "cv.pdf" } }, "documento", "[documento] cv.pdf"],
+    [{ documentMessage: {} }, "documento", "[documento]"],
+    [{ contactMessage: { displayName: "Ana" } }, "contato", "[contato] Ana"],
+    [{ contactMessage: {} }, "contato", "[contato]"],
+    [{ locationMessage: {} }, "localizacao", "[localização]"],
+    [{ pollCreationMessage: { name: "Data da prova?" } }, "enquete", "[enquete] Data da prova?"],
+    [{ pollCreationMessageV3: {} }, "enquete", "[enquete]"],
+    [{ ephemeralMessage: { message: { conversation: "temporária" } } }, "texto", "temporária"],
+  ];
+  for (const [message, tipo, texto] of casos) {
+    assert.deepEqual(conteudo(msg({ message })), { tipo, texto }, JSON.stringify(message));
+  }
+});
+
+test("menção ou resposta dentro de mídia também conta", () => {
+  const base = { key: { id: "M", remoteJid: GRUPO, participant: "5511988887777@s.whatsapp.net", fromMe: false } };
+  const ctx = { mentionedJid: [EU.jid] };
+  for (const message of [
+    { imageMessage: { contextInfo: ctx } },
+    { videoMessage: { contextInfo: ctx } },
+    { documentMessage: { contextInfo: ctx } },
+    { audioMessage: { contextInfo: { participant: EU.jid } } },
+  ]) {
+    assert.equal(paraLinha(msg({ ...base, message }), EU)?.menciona_me, 1, JSON.stringify(message));
+  }
+  assert.equal(paraLinha(msg({ ...base, message: { conversation: "sem contexto" } }), EU)?.menciona_me, 0);
+  assert.equal(
+    paraLinha(msg({ ...base, message: { extendedTextMessage: { text: "x", contextInfo: {} } } }), EU)?.menciona_me,
+    0,
+  );
+});
+
+test("minha mensagem em grupo não conta como menção e autor em conversa direta é o jid", () => {
+  const minha = msg({
+    key: { id: "N", remoteJid: GRUPO, fromMe: true },
+    message: { extendedTextMessage: { text: "@eu", contextInfo: { mentionedJid: [EU.jid] } } },
+  });
+  assert.equal(paraLinha(minha, EU)?.menciona_me, 0);
+});
+
+test("carimbo de tempo: número, Long e ausente", () => {
+  assert.equal(paraLinha(msg({ message: { conversation: "a" }, messageTimestamp: 1_700_000_000 }), EU)?.enviada_em, 1_700_000_000);
+  const longo = { toString: () => "1700000001" } as unknown as WAMessage["messageTimestamp"];
+  assert.equal(paraLinha(msg({ message: { conversation: "a" }, messageTimestamp: longo }), EU)?.enviada_em, 1_700_000_001);
+  const agora = Math.floor(Date.now() / 1000);
+  const sem = paraLinha(msg({ message: { conversation: "a" }, messageTimestamp: null }), EU)!.enviada_em;
+  assert.ok(Math.abs(sem - agora) <= 1);
+});
+
+test("canais (newsletter), mensagem sem id ou sem conversa são ignorados", () => {
+  assert.equal(paraLinha(msg({ key: { id: "C", remoteJid: "123@newsletter" }, message: { conversation: "x" } }), EU), null);
+  assert.equal(paraLinha(msg({ key: { remoteJid: "5511@s.whatsapp.net" }, message: { conversation: "x" } }), EU), null);
+  assert.equal(paraLinha(msg({ key: { id: "D" }, message: { conversation: "x" } }), EU), null);
+});
+
+test("souEu sem LID e com jid vazio", () => {
+  const semLid: Eu = { jid: EU.jid };
+  assert.ok(!souEu("111222333@lid", semLid));
+  assert.ok(!souEu(undefined, semLid));
+  assert.ok(!souEu("", semLid));
+});

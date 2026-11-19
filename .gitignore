@@ -19,3 +19,6 @@ __pycache__/
 .next/
 out/
 .DS_Store
+.coverage
+.coverage.*
+coverage/
