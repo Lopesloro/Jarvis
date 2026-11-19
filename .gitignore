@@ -1,0 +1,21 @@
+# segredos e dados pessoais: nunca versionar
+.env
+*.db
+*.db-wal
+*.db-shm
+auth/
+midia/
+*.txt.export
+core/tests/eval/real/
+
+# build
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.next/
+out/
+.DS_Store

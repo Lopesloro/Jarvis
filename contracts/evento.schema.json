@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "Pessoa": {
+      "properties": {
+        "id": {
+          "description": "E-mail, JID do WhatsApp ou id do contato",
+          "title": "Id",
+          "type": "string"
+        },
+        "nome": {
+          "default": "",
+          "title": "Nome",
+          "type": "string"
+        },
+        "eh_eu": {
+          "default": false,
+          "title": "Eh Eu",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Pessoa",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "titulo": {
+      "title": "Titulo",
+      "type": "string"
+    },
+    "inicio": {
+      "format": "date-time",
+      "title": "Inicio",
+      "type": "string"
+    },
+    "fim": {
+      "format": "date-time",
+      "title": "Fim",
+      "type": "string"
+    },
+    "participantes": {
+      "items": {
+        "$ref": "#/$defs/Pessoa"
+      },
+      "title": "Participantes",
+      "type": "array"
+    },
+    "local": {
+      "default": "",
+      "title": "Local",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "titulo",
+    "inicio",
+    "fim"
+  ],
+  "title": "Evento",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jarvis/evento.schema.json"
+}

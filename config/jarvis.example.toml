@@ -1,0 +1,24 @@
+# Copie para ~/.jarvis/jarvis.toml e ajuste. Este arquivo NÃO vai para o git.
+
+[geral]
+fuso = "America/Sao_Paulo"
+meu_nome_whatsapp = "Gabriel"       # usado no parser de exportação
+
+[prioridade]
+# e-mails ou jids do WhatsApp (5519...@s.whatsapp.net)
+vips = []
+silencio_inicio = "23:00"
+silencio_fim = "07:00"
+
+[llm]
+provedor = "ollama"                  # trocar para nuvem é decisão explícita
+modelo = "qwen2.5:7b-instruct"
+tempo_limite_s = 8
+
+[whatsapp]
+data_dir = "~/.jarvis/whatsapp"
+permitir_envio = false
+
+[api]
+porta = 8765
+# o token fica em JARVIS_TOKEN (Keychain/launchd), nunca aqui

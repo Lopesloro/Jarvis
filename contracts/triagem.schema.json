@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "Acao": {
+      "enum": [
+        "responder",
+        "agendar",
+        "ler",
+        "arquivar"
+      ],
+      "title": "Acao",
+      "type": "string"
+    },
+    "Faixa": {
+      "enum": [
+        "agora",
+        "hoje",
+        "semana",
+        "arquivar"
+      ],
+      "title": "Faixa",
+      "type": "string"
+    },
+    "Motivo": {
+      "properties": {
+        "sinal": {
+          "title": "Sinal",
+          "type": "string"
+        },
+        "pontos": {
+          "title": "Pontos",
+          "type": "integer"
+        },
+        "explicacao": {
+          "title": "Explicacao",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sinal",
+        "pontos",
+        "explicacao"
+      ],
+      "title": "Motivo",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "item_id": {
+      "title": "Item Id",
+      "type": "string"
+    },
+    "nota": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Nota",
+      "type": "integer"
+    },
+    "faixa": {
+      "$ref": "#/$defs/Faixa"
+    },
+    "motivos": {
+      "items": {
+        "$ref": "#/$defs/Motivo"
+      },
+      "title": "Motivos",
+      "type": "array"
+    },
+    "acao_sugerida": {
+      "$ref": "#/$defs/Acao"
+    },
+    "ajuste_llm": {
+      "default": 0,
+      "maximum": 20,
+      "minimum": -20,
+      "title": "Ajuste Llm",
+      "type": "integer"
+    },
+    "motivo_llm": {
+      "default": "",
+      "title": "Motivo Llm",
+      "type": "string"
+    },
+    "versao_regras": {
+      "title": "Versao Regras",
+      "type": "string"
+    }
+  },
+  "required": [
+    "item_id",
+    "nota",
+    "faixa",
+    "motivos",
+    "acao_sugerida",
+    "versao_regras"
+  ],
+  "title": "Triagem",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jarvis/triagem.schema.json"
+}

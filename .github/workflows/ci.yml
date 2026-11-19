@@ -1,0 +1,24 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: core } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --extra dev
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests
+      - run: uv run pytest -q
+      - name: contratos em dia
+        run: uv run --with pyyaml python ../scripts/gerar_contratos.py && git diff --exit-code ../contracts
+  bridge:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: bridge/whatsapp } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm test

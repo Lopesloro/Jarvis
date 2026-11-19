@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "Canal": {
+      "enum": [
+        "gmail",
+        "whatsapp",
+        "agenda"
+      ],
+      "title": "Canal",
+      "type": "string"
+    },
+    "Pessoa": {
+      "properties": {
+        "id": {
+          "description": "E-mail, JID do WhatsApp ou id do contato",
+          "title": "Id",
+          "type": "string"
+        },
+        "nome": {
+          "default": "",
+          "title": "Nome",
+          "type": "string"
+        },
+        "eh_eu": {
+          "default": false,
+          "title": "Eh Eu",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Pessoa",
+      "type": "object"
+    }
+  },
+  "description": "Unidade que entra na triagem: um e-mail, uma conversa do WhatsApp ou um evento.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "canal": {
+      "$ref": "#/$defs/Canal"
+    },
+    "conversa_id": {
+      "title": "Conversa Id",
+      "type": "string"
+    },
+    "remetente": {
+      "$ref": "#/$defs/Pessoa"
+    },
+    "assunto": {
+      "default": "",
+      "title": "Assunto",
+      "type": "string"
+    },
+    "texto": {
+      "title": "Texto",
+      "type": "string"
+    },
+    "recebido_em": {
+      "format": "date-time",
+      "title": "Recebido Em",
+      "type": "string"
+    },
+    "eh_grupo": {
+      "default": false,
+      "title": "Eh Grupo",
+      "type": "boolean"
+    },
+    "mencoes_a_mim": {
+      "default": false,
+      "title": "Mencoes A Mim",
+      "type": "boolean"
+    },
+    "destinatarios": {
+      "items": {
+        "$ref": "#/$defs/Pessoa"
+      },
+      "title": "Destinatarios",
+      "type": "array"
+    },
+    "metadados": {
+      "additionalProperties": true,
+      "title": "Metadados",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "canal",
+    "conversa_id",
+    "remetente",
+    "texto",
+    "recebido_em"
+  ],
+  "title": "Item",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jarvis/item.schema.json"
+}
